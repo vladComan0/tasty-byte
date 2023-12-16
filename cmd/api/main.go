@@ -1,0 +1,79 @@
+package main
+
+import (
+	"database/sql"
+	"flag"
+	"log"
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/vladComan0/tasty-byte/internal/models"
+)
+
+type config struct {
+	addr         string
+	environment  string
+	dsn          string
+	debugEnabled bool
+}
+
+type application struct {
+	config   config
+	infoLog  *log.Logger
+	errorLog *log.Logger
+	recipes  *models.RecipeModel
+}
+
+func main() {
+	var config config
+	flag.StringVar(&config.addr, "addr", ":4000", "HTTP endpoint the server should listen on.")
+	flag.StringVar(&config.environment, "env", "development", "Environment the application is running in.")
+	flag.StringVar(&config.dsn, "dsn", os.Getenv("DB_DSN"), "MySQL data source name.")
+	flag.BoolVar(&config.debugEnabled, "debug", false, "Enable debug mode.")
+	flag.Parse()
+
+	config.dsn = "tastybyte_user:$up3r$3cur3pa$$word@/tastybyte?parseTime=true"
+
+	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
+	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
+
+	db, err := openDB(config.dsn)
+	if err != nil {
+		errorLog.Fatal(err)
+	}
+	defer db.Close()
+
+	// dependency injection
+	app := &application{
+		config:   config,
+		infoLog:  infoLog,
+		errorLog: errorLog,
+		recipes:  &models.RecipeModel{DB: db},
+	}
+
+	server := &http.Server{
+		Addr:         config.addr,
+		Handler:      app.routes(),
+		IdleTimeout:  time.Minute,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+
+	infoLog.Printf("Starting server on port: %s", strings.Split(server.Addr, ":")[1])
+	err = server.ListenAndServe()
+	errorLog.Fatal(err)
+}
+
+func openDB(dsn string) (*sql.DB, error) {
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, err
+	}
+	if err = db.Ping(); err != nil {
+		return nil, err
+	}
+	return db, nil
+}
