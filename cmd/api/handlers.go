@@ -21,14 +21,27 @@ func (app *application) ping(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) createRecipe(w http.ResponseWriter, r *http.Request) {
-	// mock the recipe
+	var input struct {
+		Name            string `json:"name"`
+		Description     string `json:"description"`
+		Instructions    string `json:"instructions"`
+		PreparationTime string `json:"preparation_time"`
+		CookingTime     string `json:"cooking_time"`
+		Portions        int    `json:"portions"`
+	}
+
+	if err := app.readJSON(w, r, &input); err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
 	recipe := &models.Recipe{
-		Name:            "Pancakes",
-		Description:     "Delicious pancakes",
-		Instructions:    "Mix the ingredients and fry them",
-		PreparationTime: "10 minutes",
-		CookingTime:     "10 minutes",
-		Portions:        "2",
+		Name:            input.Name,
+		Description:     input.Description,
+		Instructions:    input.Instructions,
+		PreparationTime: input.PreparationTime,
+		CookingTime:     input.CookingTime,
+		Portions:        input.Portions,
 	}
 
 	id, err := app.recipes.Insert(
@@ -44,8 +57,16 @@ func (app *application) createRecipe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// send the recipe as JSON
-	fmt.Fprintf(w, "The recipe with id %d was created successfully!", id)
+	// Make the application aware of that new location -> add the headers to the right json helper function
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("v1/recipes/%d", id))
+
+	if err = app.writeJSON(w, http.StatusCreated, envelope{"recipe": recipe}, headers); err != nil {
+		app.serverError(w, err)
+		return
+	}
+
+	app.infoLog.Printf("Created new recipe with id: %d", id)
 }
 
 func (app *application) getRecipe(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +88,106 @@ func (app *application) getRecipe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// send the recipe as JSON
-	_ = recipe
-	fmt.Fprint(w, "Nailed it!")
+	if err = app.writeJSON(w, http.StatusOK, envelope{"recipe": recipe}, nil); err != nil {
+		app.serverError(w, err)
+		return
+	}
+
+	app.infoLog.Printf("Retrieved recipe with id: %d", id)
+}
+
+func (app *application) updateRecipe(w http.ResponseWriter, r *http.Request) {
+	params := httprouter.ParamsFromContext(r.Context())
+	id, err := strconv.Atoi(params.ByName("id"))
+	if err != nil || id < 1 {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	recipe, err := app.recipes.Get(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrNoRecord):
+			app.clientError(w, http.StatusNotFound)
+		default:
+			app.serverError(w, err)
+		}
+		return
+	}
+
+	var input struct {
+		Name            *string `json:"name"`
+		Description     *string `json:"description"`
+		Instructions    *string `json:"instructions"`
+		PreparationTime *string `json:"preparation_time"`
+		CookingTime     *string `json:"cooking_time"`
+		Portions        *int    `json:"portions"`
+	}
+
+	if err := app.readJSON(w, r, &input); err != nil {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	if input.Name != nil {
+		recipe.Name = *input.Name
+	}
+
+	if input.Description != nil {
+		recipe.Description = *input.Description
+	}
+
+	if input.Instructions != nil {
+		recipe.Instructions = *input.Instructions
+	}
+
+	if input.PreparationTime != nil {
+		recipe.PreparationTime = *input.PreparationTime
+	}
+
+	if input.CookingTime != nil {
+		recipe.CookingTime = *input.CookingTime
+	}
+
+	if input.Portions != nil {
+		recipe.Portions = *input.Portions
+	}
+
+	if err := app.recipes.Update(recipe); err != nil {
+		app.serverError(w, err)
+		return
+	}
+
+	if err = app.writeJSON(w, http.StatusOK, envelope{"recipe": recipe}, nil); err != nil {
+		app.serverError(w, err)
+		return
+	}
+
+	app.infoLog.Printf("Updated recipe with id: %d", id)
+}
+
+func (app *application) deleteRecipe(w http.ResponseWriter, r *http.Request) {
+	params := httprouter.ParamsFromContext(r.Context())
+	id, err := strconv.Atoi(params.ByName("id"))
+	if err != nil || id < 1 {
+		app.clientError(w, http.StatusBadRequest)
+		return
+	}
+
+	if err := app.recipes.Delete(id); err != nil {
+		switch {
+		case errors.Is(err, models.ErrNoRecord):
+			app.clientError(w, http.StatusNotFound)
+		default:
+			app.serverError(w, err)
+		}
+		return
+	}
+
+	if err := app.writeJSON(w, http.StatusOK, envelope{"message": "Recipe successfully deleted"}, nil); err != nil {
+		app.serverError(w, err)
+		return
+	}
+
+	app.infoLog.Printf("Deleted recipe with id: %d", id)
 }

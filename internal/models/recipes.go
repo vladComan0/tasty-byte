@@ -13,7 +13,7 @@ type Recipe struct {
 	Instructions    string
 	PreparationTime string
 	CookingTime     string
-	Portions        string
+	Portions        int
 	CreatedAt       time.Time
 }
 
@@ -21,7 +21,7 @@ type RecipeModel struct {
 	DB *sql.DB
 }
 
-func (m *RecipeModel) Insert(name, description, instructions, preparationTime, cookingTime, portions string) (int, error) {
+func (m *RecipeModel) Insert(name, description, instructions, preparationTime, cookingTime string, portions int) (int, error) {
 	stmt := `
     INSERT INTO recipes 
         (name, description, instructions, preparation_time, cooking_time, portions, created)
@@ -82,13 +82,112 @@ func (m *RecipeModel) Get(id int) (*Recipe, error) {
 }
 
 func (m *RecipeModel) Update(recipe *Recipe) error {
+	stmt := `
+	UPDATE recipes
+	SET 
+		name = ?, 
+		description = ?, 
+		instructions = ?, 
+		preparation_time = ?, 
+		cooking_time = ?, 
+		portions = ?
+	WHERE 
+		id = ?
+	`
+	results, err := m.DB.Exec(
+		stmt,
+		recipe.Name,
+		recipe.Description,
+		recipe.Instructions,
+		recipe.PreparationTime,
+		recipe.CookingTime,
+		recipe.Portions,
+		recipe.ID,
+	)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := results.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrNoRecord
+	}
+
 	return nil
 }
 
 func (m *RecipeModel) Delete(id int) error { // possibly not needed
+	stmt := `
+	DELETE FROM recipes
+	WHERE id = ?
+	`
+	results, err := m.DB.Exec(stmt, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := results.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return ErrNoRecord
+	}
+
 	return nil
 }
 
 func (m *RecipeModel) Latest() ([]*Recipe, error) {
-	return nil, nil
+	stmt := `
+	SELECT 
+        id, 
+        name, 
+        description, 
+        instructions, 
+        preparation_time, 
+        cooking_time, 
+        portions, 
+        created
+    FROM 
+        recipes 
+    ORDER BY
+		id DESC
+	LIMIT 
+		10
+	`
+
+	rows, err := m.DB.Query(stmt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	recipes := []*Recipe{}
+	for rows.Next() {
+		recipe := &Recipe{}
+		err := rows.Scan(&recipe.ID,
+			&recipe.Name,
+			&recipe.Description,
+			&recipe.Instructions,
+			&recipe.PreparationTime,
+			&recipe.CookingTime,
+			&recipe.Portions,
+			&recipe.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		recipes = append(recipes, recipe)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return recipes, nil
 }
