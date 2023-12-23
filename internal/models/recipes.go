@@ -7,14 +7,14 @@ import (
 )
 
 type Recipe struct {
-	ID              int
-	Name            string
-	Description     string
-	Instructions    string
-	PreparationTime string
-	CookingTime     string
-	Portions        int
-	CreatedAt       time.Time
+	ID              int       `json:"id"`
+	Name            string    `json:"name"`
+	Description     string    `json:"description,omitempty"`
+	Instructions    string    `json:"instructions,omitempty"`
+	PreparationTime string    `json:"preparation_time,omitempty"`
+	CookingTime     string    `json:"cooking_time,omitempty"`
+	Portions        int       `json:"portions,omitempty"`
+	CreatedAt       time.Time `json:"-"`
 }
 
 type RecipeModel struct {

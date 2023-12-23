@@ -18,7 +18,7 @@ func (app *application) routes() http.Handler {
 	router.Handler(http.MethodPut, "/v1/recipes/:id", http.HandlerFunc(app.updateRecipe))
 	router.Handler(http.MethodDelete, "/v1/recipes/:id", http.HandlerFunc(app.deleteRecipe))
 
-	standardChain := alice.New(app.recoverPanic, app.logRequests)
+	standardChain := alice.New(app.recoverPanic, app.logRequests, app.enableCORS)
 
 	return standardChain.Then(router)
 }

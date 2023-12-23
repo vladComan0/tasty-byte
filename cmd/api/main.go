@@ -14,10 +14,11 @@ import (
 )
 
 type config struct {
-	addr         string
-	environment  string
-	dsn          string
-	debugEnabled bool
+	addr           string
+	environment    string
+	dsn            string
+	debugEnabled   bool
+	allowedOrigins []string
 }
 
 type application struct {
@@ -33,8 +34,10 @@ func main() {
 	flag.StringVar(&config.environment, "env", "development", "Environment the application is running in.")
 	flag.StringVar(&config.dsn, "dsn", os.Getenv("DB_DSN"), "MySQL data source name.")
 	flag.BoolVar(&config.debugEnabled, "debug", false, "Enable debug mode.")
+	allowedOrigins := flag.String("origins", "http://192.168.100.20:4200", "Allowed origins for CORS, comma-separated.")
 	flag.Parse()
 
+	config.allowedOrigins = strings.Split(*allowedOrigins, ",")
 	config.dsn = "tastybyte_user:$up3r$3cur3pa$$word@/tastybyte?parseTime=true"
 
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)

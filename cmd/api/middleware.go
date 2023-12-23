@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net/http"
+
+	"github.com/rs/cors"
 )
 
 func (app *application) logRequests(next http.Handler) http.Handler {
@@ -26,4 +28,16 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (app *application) enableCORS(next http.Handler) http.Handler {
+	corsHandler := cors.New(cors.Options{
+		AllowedOrigins:   app.config.allowedOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization"},
+		AllowCredentials: true,
+		Debug:            false,
+	})
+
+	return corsHandler.Handler(next)
 }
