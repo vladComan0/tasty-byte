@@ -28,8 +28,9 @@ docker: $(SOURCES) build/Dockerfile
 
 .PHONY: run
 run:
-	docker-compose -f build/docker-compose.yml up -d --build --force-recreate
-.PHONY: destory
+@echo "Starting services..."
+    @docker-compose -f build/docker-compose.yml up -d || (echo "Failed to start services"; exit 1)
+    @echo "Services started".PHONY: destory
 destroy:
 	docker-compose -f build/docker-compose.yml down
 

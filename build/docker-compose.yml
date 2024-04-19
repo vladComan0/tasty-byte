@@ -1,14 +1,11 @@
 version: '3.8'
 services:
   api:
-    env_file:
-      - .env
     build: 
       context: ..
       dockerfile: build/Dockerfile
       args:
         - VERSION=${VERSION}
-        - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     image: vladcoman/tastybyte:${VERSION}
     environment:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}

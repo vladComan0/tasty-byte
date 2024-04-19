@@ -34,8 +34,6 @@ USER api
 WORKDIR /home
 EXPOSE 8080
 
-ARG MYSQL_PASSWORD
-# Otherwise it is not expanded
 ENV MYSQL_PASSWORD=$MYSQL_PASSWORD
 
 ENTRYPOINT ["./api"]
