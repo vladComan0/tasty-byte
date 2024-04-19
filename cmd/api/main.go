@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -32,13 +33,13 @@ func main() {
 	var config config
 	flag.StringVar(&config.addr, "addr", ":4000", "HTTP endpoint the server should listen on.")
 	flag.StringVar(&config.environment, "env", "development", "Environment the application is running in.")
-	flag.StringVar(&config.dsn, "dsn", os.Getenv("DB_DSN"), "MySQL data source name.")
 	flag.BoolVar(&config.debugEnabled, "debug", false, "Enable debug mode.")
 	allowedOrigins := flag.String("origins", "http://192.168.100.20:4200", "Allowed origins for CORS, comma-separated.")
 	flag.Parse()
 
+	config.dsn = fmt.Sprintf("tastybyte_user:%s@tcp(db:3306)/tastybyte?parseTime=true", os.Getenv("MYSQL_PASSWORD"))
+
 	config.allowedOrigins = strings.Split(*allowedOrigins, ",")
-	config.dsn = "tastybyte_user:$up3r$3cur3pa$$word@/tastybyte?parseTime=true"
 
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
 	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)

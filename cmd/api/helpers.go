@@ -25,7 +25,7 @@ func (app *application) serverError(w http.ResponseWriter, err error) {
 }
 
 func (app *application) readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
-	maxBytes := 1_048_576
+	const maxBytes = 1_048_576
 	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
 
 	dec := json.NewDecoder(r.Body)
