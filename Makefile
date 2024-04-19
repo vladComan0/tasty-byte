@@ -34,7 +34,7 @@ destroy:
 	docker-compose -f build/docker-compose.yml down
 
 .PHONY: publish
-publish: committed lint
+publish: committed #lint
 	make docker
-	docker tag  tastybyte:latest vladcoman/tastybyte:$(VERSION)
+	docker tag vladcoman/tastybyte:latest vladcoman/tastybyte:$(VERSION)
 	docker push vladcoman/tastybyte:$(VERSION)
