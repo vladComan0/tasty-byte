@@ -36,5 +36,4 @@ destroy:
 .PHONY: publish
 publish: committed #lint
 	make docker
-	docker tag vladcoman/tastybyte:latest vladcoman/tastybyte:$(VERSION)
 	docker push vladcoman/tastybyte:$(VERSION)
