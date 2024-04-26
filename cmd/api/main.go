@@ -37,7 +37,7 @@ func main() {
 	allowedOrigins := flag.String("origins", "http://192.168.100.20:4200", "Allowed origins for CORS, comma-separated.")
 	flag.Parse()
 
-	config.dsn = fmt.Sprintf("tastybyte_user:%s@tcp(db:3306)/tastybyte?parseTime=true", os.Getenv("MYSQL_PASSWORD"))
+	config.dsn = fmt.Sprintf("tastybyte_user:%s@tcp(localhost:3306)/tastybyte?parseTime=true", os.Getenv("MYSQL_PASSWORD"))
 
 	config.allowedOrigins = strings.Split(*allowedOrigins, ",")
 
@@ -50,12 +50,23 @@ func main() {
 	}
 	defer db.Close()
 
+	tagModel := &models.TagModel{
+		DB: db,
+	}
+
+	recipeTagModel := &models.RecipeTagModel{
+		DB: db,
+	}
 	// dependency injection
 	app := &application{
 		config:   config,
 		infoLog:  infoLog,
 		errorLog: errorLog,
-		recipes:  &models.RecipeModel{DB: db},
+		recipes: &models.RecipeModel{
+			DB:             db,
+			TagModel:       tagModel,
+			RecipeTagModel: recipeTagModel,
+		},
 	}
 
 	server := &http.Server{

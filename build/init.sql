@@ -1,7 +1,7 @@
 CREATE SCHEMA IF NOT EXISTS `tastybyte`;
 USE `tastybyte`;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON `tastybyte`.* TO `tastybyte_user`@`%`;
+GRANT CREATE, SELECT, INSERT, UPDATE, DELETE, REFERENCES ON `tastybyte`.* TO `tastybyte_user`@`%`;
 
 CREATE TABLE `recipes` (
   `id` int NOT NULL AUTO_INCREMENT,

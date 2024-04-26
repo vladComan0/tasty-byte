@@ -10,24 +10,29 @@ import (
 	"github.com/vladComan0/tasty-byte/internal/models"
 )
 
-func (app *application) ping(w http.ResponseWriter, r *http.Request) {
+func (app *application) ping(w http.ResponseWriter, _ *http.Request) {
 	if err := app.recipes.DB.Ping(); err != nil {
 		app.errorLog.Printf("Unable to establish connection with database: %v", err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		app.serverError(w, err)
 		return
 	}
 
-	w.Write([]byte("pong"))
+	_, err := w.Write([]byte("pong"))
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
 }
 
 func (app *application) createRecipe(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Name            string `json:"name"`
-		Description     string `json:"description"`
-		Instructions    string `json:"instructions"`
-		PreparationTime string `json:"preparation_time"`
-		CookingTime     string `json:"cooking_time"`
-		Portions        int    `json:"portions"`
+		Name            string        `json:"name"`
+		Description     string        `json:"description"`
+		Instructions    string        `json:"instructions"`
+		PreparationTime string        `json:"preparation_time"`
+		CookingTime     string        `json:"cooking_time"`
+		Portions        int           `json:"portions"`
+		Tags            []*models.Tag `json:"tags"`
 	}
 
 	if err := app.readJSON(w, r, &input); err != nil {
@@ -42,6 +47,7 @@ func (app *application) createRecipe(w http.ResponseWriter, r *http.Request) {
 		PreparationTime: input.PreparationTime,
 		CookingTime:     input.CookingTime,
 		Portions:        input.Portions,
+		Tags:            input.Tags,
 	}
 
 	id, err := app.recipes.Insert(
@@ -51,7 +57,15 @@ func (app *application) createRecipe(w http.ResponseWriter, r *http.Request) {
 		recipe.PreparationTime,
 		recipe.CookingTime,
 		recipe.Portions,
+		recipe.Tags,
 	)
+	if err != nil {
+		app.serverError(w, err)
+		return
+	}
+
+	// Fetch the newly created recipe from the database to update the ID
+	recipe, err = app.recipes.Get(id)
 	if err != nil {
 		app.serverError(w, err)
 		return
@@ -67,6 +81,25 @@ func (app *application) createRecipe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.infoLog.Printf("Created new recipe with id: %d", id)
+}
+
+func (app *application) listRecipes(w http.ResponseWriter, _ *http.Request) {
+	recipes, err := app.recipes.GetAll()
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrNoRecord):
+			app.clientError(w, http.StatusNotFound)
+		default:
+			app.serverError(w, err)
+		}
+		return
+	}
+
+	if err := app.writeJSON(w, http.StatusOK, envelope{"recipes": recipes}, nil); err != nil {
+		app.serverError(w, err)
+		return
+	}
+	app.infoLog.Printf("Retrieved all recipes")
 }
 
 func (app *application) getRecipe(w http.ResponseWriter, r *http.Request) {
@@ -116,12 +149,13 @@ func (app *application) updateRecipe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input struct {
-		Name            *string `json:"name"`
-		Description     *string `json:"description"`
-		Instructions    *string `json:"instructions"`
-		PreparationTime *string `json:"preparation_time"`
-		CookingTime     *string `json:"cooking_time"`
-		Portions        *int    `json:"portions"`
+		Name            *string       `json:"name"`
+		Description     *string       `json:"description"`
+		Instructions    *string       `json:"instructions"`
+		PreparationTime *string       `json:"preparation_time"`
+		CookingTime     *string       `json:"cooking_time"`
+		Portions        *int          `json:"portions"`
+		Tags            []*models.Tag `json:"tags"`
 	}
 
 	if err := app.readJSON(w, r, &input); err != nil {
@@ -151,6 +185,16 @@ func (app *application) updateRecipe(w http.ResponseWriter, r *http.Request) {
 
 	if input.Portions != nil {
 		recipe.Portions = *input.Portions
+	}
+
+	if input.Tags != nil {
+		for _, tag := range input.Tags {
+			if tag.Name == "" {
+				app.clientError(w, http.StatusBadRequest)
+				return
+			}
+		}
+		recipe.Tags = input.Tags
 	}
 
 	if err := app.recipes.Update(recipe); err != nil {

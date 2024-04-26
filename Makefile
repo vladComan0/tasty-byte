@@ -28,9 +28,11 @@ docker: $(SOURCES) build/Dockerfile
 
 .PHONY: run
 run:
-@echo "Starting services..."
-    @docker-compose -f build/docker-compose.yml up -d || (echo "Failed to start services"; exit 1)
-    @echo "Services started".PHONY: destory
+	@echo "Starting services..."
+	@docker-compose -f build/docker-compose.yml up -d || (echo "Failed to start services"; exit 1)
+	@echo "Services started"
+
+.PHONY: destroy
 destroy:
 	docker-compose -f build/docker-compose.yml down
 
