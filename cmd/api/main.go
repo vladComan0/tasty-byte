@@ -48,7 +48,9 @@ func main() {
 	if err != nil {
 		errorLog.Fatal(err)
 	}
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	tagModel := &models.TagModel{
 		DB: db,

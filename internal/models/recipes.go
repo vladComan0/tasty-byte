@@ -55,19 +55,26 @@ func (m *RecipeModel) Insert(name, description, instructions, preparationTime, c
 }
 
 func (m *RecipeModel) GetAll() ([]*Recipe, error) {
-	var recipes []*Recipe
+	var results []*Recipe
+
 	stmt := `
 	SELECT 
-		id,
-		name,
-		description,
-		instructions,
-		preparation_time,
-		cooking_time,
-		portions,
-		created
+		recipes.id,
+		recipes.name,
+		recipes.description,
+		recipes.instructions,
+		recipes.preparation_time,
+		recipes.cooking_time,
+		recipes.portions,
+		recipes.created,
+		tags.id,
+		tags.name
 	FROM
-		recipes`
+		recipes
+	LEFT JOIN 
+		recipe_tags ON recipes.id=recipe_tags.recipe_id
+	LEFT JOIN
+		tags ON recipe_tags.tag_id=tags.id`
 
 	rows, err := m.DB.Query(stmt)
 	if err != nil {
@@ -82,8 +89,15 @@ func (m *RecipeModel) GetAll() ([]*Recipe, error) {
 		_ = rows.Close()
 	}(rows)
 
+	recipes := make(map[int]*Recipe)
 	for rows.Next() {
-		recipe := &Recipe{}
+		var (
+			tag     = &Tag{}
+			tagID   sql.NullInt64
+			tagName sql.NullString
+			recipe  = &Recipe{}
+		)
+
 		err := rows.Scan(
 			&recipe.ID,
 			&recipe.Name,
@@ -93,26 +107,35 @@ func (m *RecipeModel) GetAll() ([]*Recipe, error) {
 			&recipe.CookingTime,
 			&recipe.Portions,
 			&recipe.CreatedAt,
+			&tagID,
+			&tagName,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		tags, err := m.TagModel.GetByRecipeID(recipe.ID)
-		if err != nil {
-			return nil, err
+		if _, ok := recipes[recipe.ID]; !ok {
+			recipe.Tags = []*Tag{}
+			recipes[recipe.ID] = recipe
 		}
 
-		recipe.Tags = tags
+		if tagID.Valid && tagName.Valid {
+			tag.ID = int(tagID.Int64)
+			tag.Name = tagName.String
+			recipes[recipe.ID].Tags = append(recipes[recipe.ID].Tags, tag)
+		}
 
-		recipes = append(recipes, recipe)
 	}
 
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 
-	return recipes, nil
+	for _, recipe := range recipes {
+		results = append(results, recipe)
+	}
+
+	return results, nil
 }
 
 func (m *RecipeModel) Get(id int) (*Recipe, error) {
