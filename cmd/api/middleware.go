@@ -32,7 +32,7 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 
 func (app *application) enableCORS(next http.Handler) http.Handler {
 	corsHandler := cors.New(cors.Options{
-		AllowedOrigins:   app.config.allowedOrigins,
+		AllowedOrigins:   app.config.AllowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Content-Type", "Content-Length", "Accept-Encoding", "X-CSRF-Token", "Authorization"},
 		AllowCredentials: true,

@@ -2,8 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"flag"
-	"fmt"
+	"github.com/spf13/viper"
 	"log"
 	"net/http"
 	"os"
@@ -15,11 +14,11 @@ import (
 )
 
 type config struct {
-	addr           string
-	environment    string
-	dsn            string
-	debugEnabled   bool
-	allowedOrigins []string
+	Addr           string   `mapstructure:"addr"`
+	Environment    string   `mapstructure:"environment"`
+	DSN            string   `mapstructure:"dsn"`
+	DebugEnabled   bool     `mapstructure:"debug_enabled"`
+	AllowedOrigins []string `mapstructure:"allowed_origins"`
 }
 
 type application struct {
@@ -31,20 +30,13 @@ type application struct {
 
 func main() {
 	var config config
-	flag.StringVar(&config.addr, "addr", ":4000", "HTTP endpoint the server should listen on.")
-	flag.StringVar(&config.environment, "env", "development", "Environment the application is running in.")
-	flag.BoolVar(&config.debugEnabled, "debug", false, "Enable debug mode.")
-	allowedOrigins := flag.String("origins", "http://192.168.100.20:4200", "Allowed origins for CORS, comma-separated.")
-	flag.Parse()
-
-	config.dsn = fmt.Sprintf("tastybyte_user:%s@tcp(localhost:3306)/tastybyte?parseTime=true", os.Getenv("MYSQL_PASSWORD"))
-
-	config.allowedOrigins = strings.Split(*allowedOrigins, ",")
 
 	infoLog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
 	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 
-	db, err := openDB(config.dsn)
+	getConfig(errorLog, &config)
+
+	db, err := openDB(config.DSN)
 	if err != nil {
 		errorLog.Fatal(err)
 	}
@@ -72,7 +64,7 @@ func main() {
 	}
 
 	server := &http.Server{
-		Addr:         config.addr,
+		Addr:         config.Addr,
 		Handler:      app.routes(),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  5 * time.Second,
@@ -82,6 +74,19 @@ func main() {
 	infoLog.Printf("Starting server on port: %s", strings.Split(server.Addr, ":")[1])
 	err = server.ListenAndServe()
 	errorLog.Fatal(err)
+}
+
+func getConfig(errorLog *log.Logger, config *config) {
+	viper.SetConfigName("config")
+	viper.AddConfigPath(".")
+	viper.SetConfigType("yaml")
+	if err := viper.ReadInConfig(); err != nil {
+		errorLog.Fatalf("Error reading config file, %s", err)
+	}
+
+	if err := viper.Unmarshal(config); err != nil {
+		errorLog.Fatalf("Unable to decode into struct, %v", err)
+	}
 }
 
 func openDB(dsn string) (*sql.DB, error) {
