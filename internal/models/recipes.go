@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"errors"
+	"sort"
 	"time"
 )
 
@@ -134,6 +135,10 @@ func (m *RecipeModel) GetAll() ([]*Recipe, error) {
 	for _, recipe := range recipes {
 		results = append(results, recipe)
 	}
+
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].ID < results[j].ID
+	})
 
 	return results, nil
 }
