@@ -3,55 +3,85 @@ package models
 import (
 	"database/sql"
 	"errors"
+	"log"
 	"sort"
 	"time"
 )
 
 type Recipe struct {
-	ID              int       `json:"id"`
-	Name            string    `json:"name"`
-	Description     string    `json:"description,omitempty"`
-	Instructions    string    `json:"instructions,omitempty"`
-	PreparationTime string    `json:"preparation_time,omitempty"`
-	CookingTime     string    `json:"cooking_time,omitempty"`
-	Portions        int       `json:"portions,omitempty"`
-	CreatedAt       time.Time `json:"-"`
-	Tags            []*Tag    `json:"tags,omitempty"`
+	ID              int               `json:"id"`
+	Name            string            `json:"name"`
+	Description     string            `json:"description,omitempty"`
+	Instructions    string            `json:"instructions,omitempty"`
+	PreparationTime string            `json:"preparation_time,omitempty"`
+	CookingTime     string            `json:"cooking_time,omitempty"`
+	Portions        int               `json:"portions,omitempty"`
+	CreatedAt       time.Time         `json:"-"`
+	Ingredients     []*FullIngredient `json:"ingredients,omitempty"`
+	Tags            []*Tag            `json:"tags,omitempty"`
 }
 
 type RecipeModel struct {
-	DB             *sql.DB
-	TagModel       *TagModel
-	RecipeTagModel *RecipeTagModel
+	DB                    *sql.DB
+	IngredientModel       *IngredientModel
+	RecipeIngredientModel *RecipeIngredientModel
+	TagModel              *TagModel
+	RecipeTagModel        *RecipeTagModel
 }
 
-func (m *RecipeModel) Insert(name, description, instructions, preparationTime, cookingTime string, portions int, tags []*Tag) (int, error) {
+func (m *RecipeModel) Insert(name, description, instructions, preparationTime, cookingTime string, portions int, ingredients []*FullIngredient, tags []*Tag) (int, error) {
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return 0, err
+	}
+
 	stmt := `
     INSERT INTO recipes 
         (name, description, instructions, preparation_time, cooking_time, portions, created)
     VALUES 
         (?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())
-`
-	result, err := m.DB.Exec(stmt, name, description, instructions, preparationTime, cookingTime, portions)
+	`
+	result, err := tx.Exec(stmt, name, description, instructions, preparationTime, cookingTime, portions)
 	if err != nil {
+		_ = tx.Rollback()
 		return 0, err
 	}
 
 	recipeID64, err := result.LastInsertId()
 	if err != nil {
+		_ = tx.Rollback()
 		return 0, err
 	}
 	recipeID := int(recipeID64)
 
-	for _, tag := range tags {
-		tagID, err := m.TagModel.InsertIfNotExists(tag.Name)
+	for _, ingredient := range ingredients {
+		ingredientID, err := m.IngredientModel.InsertIfNotExists(tx, ingredient.Name)
 		if err != nil {
+			_ = tx.Rollback()
 			return 0, err
 		}
-		if err := m.RecipeTagModel.Associate(recipeID, tagID); err != nil {
+		if err := m.RecipeIngredientModel.Associate(tx, recipeID, ingredientID, ingredient.Quantity, ingredient.Unit); err != nil {
+			_ = tx.Rollback()
 			return 0, err
 		}
 	}
+
+	for _, tag := range tags {
+		tagID, err := m.TagModel.InsertIfNotExists(tx, tag.Name)
+		if err != nil {
+			_ = tx.Rollback()
+			return 0, err
+		}
+		if err := m.RecipeTagModel.Associate(tx, recipeID, tagID); err != nil {
+			_ = tx.Rollback()
+			return 0, err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+
 	return recipeID, nil
 }
 
@@ -192,6 +222,18 @@ func (m *RecipeModel) Get(id int) (*Recipe, error) {
 }
 
 func (m *RecipeModel) Update(recipe *Recipe) error {
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func(tx *sql.Tx) {
+		err := tx.Rollback()
+		if err != nil {
+			log.Printf("could not rollback %v", err)
+		}
+	}(tx)
+
 	existingRecipe, err := m.Get(recipe.ID)
 	if err != nil {
 		return err
@@ -213,7 +255,7 @@ func (m *RecipeModel) Update(recipe *Recipe) error {
 	WHERE 
 		id = ?
 	`
-	_, err = m.DB.Exec(
+	_, err = tx.Exec(
 		stmt,
 		recipe.Name,
 		recipe.Description,
@@ -228,31 +270,45 @@ func (m *RecipeModel) Update(recipe *Recipe) error {
 	}
 
 	for _, tag := range recipe.Tags {
-		tagID, err := m.TagModel.InsertIfNotExists(tag.Name)
+		tagID, err := m.TagModel.InsertIfNotExists(tx, tag.Name)
 		if err != nil {
 			return err
 		}
 		tag.ID = tagID
 
-		if err := m.RecipeTagModel.Associate(recipe.ID, tag.ID); err != nil {
+		if err := m.RecipeTagModel.Associate(tx, recipe.ID, tag.ID); err != nil {
 			return err
 		}
 	}
 
 	// Delete any associations in the recipe_tags table that are not in the updated Recipe struct
-	if err := m.RecipeTagModel.DissociateNotInList(recipe.ID, recipe.Tags); err != nil {
+	if err := m.RecipeTagModel.DissociateNotInList(tx, recipe.ID, recipe.Tags); err != nil {
 		return err
 	}
 
+	if err := tx.Commit(); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (m *RecipeModel) Delete(id int) error { // possibly not needed
+func (m *RecipeModel) Delete(id int) (err error) {
+	tx, err := m.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer func(tx *sql.Tx) {
+		err := tx.Rollback()
+		if err != nil {
+			log.Printf("could not rollback %v", err)
+		}
+	}(tx)
+
 	stmt := `
 	DELETE FROM recipes
 	WHERE id = ?
 	`
-	results, err := m.DB.Exec(stmt, id)
+	results, err := tx.Exec(stmt, id)
 	if err != nil {
 		return err
 	}
@@ -266,7 +322,7 @@ func (m *RecipeModel) Delete(id int) error { // possibly not needed
 		return ErrNoRecord
 	}
 
-	if err := m.RecipeTagModel.deleteRecordsByRecipe(id); err != nil {
+	if err := m.RecipeTagModel.deleteRecordsByRecipe(tx, id); err != nil {
 		return err
 	}
 

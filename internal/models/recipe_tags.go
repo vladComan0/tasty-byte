@@ -14,9 +14,9 @@ type RecipeTagModel struct {
 	DB *sql.DB
 }
 
-func (m *RecipeTagModel) Associate(recipeID, tagID int) error {
+func (m *RecipeTagModel) Associate(tx *sql.Tx, recipeID, tagID int) error {
 	var exists bool
-	err := m.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM recipe_tags WHERE recipe_id = ? AND tag_id = ?)", recipeID, tagID).Scan(&exists)
+	err := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM recipe_tags WHERE recipe_id = ? AND tag_id = ?)", recipeID, tagID).Scan(&exists)
 	if err != nil {
 		return err
 	}
@@ -25,7 +25,7 @@ func (m *RecipeTagModel) Associate(recipeID, tagID int) error {
 		return nil
 	}
 
-	_, err = m.DB.Exec("INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?, ?)", recipeID, tagID)
+	_, err = tx.Exec("INSERT INTO recipe_tags (recipe_id, tag_id) VALUES (?, ?)", recipeID, tagID)
 	if err != nil {
 		return err
 	}
@@ -33,8 +33,8 @@ func (m *RecipeTagModel) Associate(recipeID, tagID int) error {
 	return nil
 }
 
-func (m *RecipeTagModel) DissociateNotInList(recipeID int, recipeTags []*Tag) error {
-	tagIDs, err := m.getTagIDsForRecipe(recipeID)
+func (m *RecipeTagModel) DissociateNotInList(tx *sql.Tx, recipeID int, recipeTags []*Tag) error {
+	tagIDs, err := m.getTagIDsForRecipe(tx, recipeID)
 	if err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func (m *RecipeTagModel) DissociateNotInList(recipeID int, recipeTags []*Tag) er
 
 	for _, tagID := range tagIDs {
 		if !tagMap[tagID] {
-			if err := m.deleteRecord(recipeID, tagID); err != nil {
+			if err := m.deleteRecord(tx, recipeID, tagID); err != nil {
 				return err
 			}
 		}
@@ -55,10 +55,10 @@ func (m *RecipeTagModel) DissociateNotInList(recipeID int, recipeTags []*Tag) er
 	return nil
 }
 
-func (m *RecipeTagModel) getTagIDsForRecipe(recipeID int) ([]int, error) {
+func (m *RecipeTagModel) getTagIDsForRecipe(tx *sql.Tx, recipeID int) ([]int, error) {
 	var tagIDs []int
 
-	rows, err := m.DB.Query("SELECT tag_id FROM recipe_tags WHERE recipe_id = ?", recipeID)
+	rows, err := tx.Query("SELECT tag_id FROM recipe_tags WHERE recipe_id = ?", recipeID)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -85,12 +85,12 @@ func (m *RecipeTagModel) getTagIDsForRecipe(recipeID int) ([]int, error) {
 	return tagIDs, nil
 }
 
-func (m *RecipeTagModel) deleteRecord(recipeID, tagID int) error {
-	_, err := m.DB.Exec("DELETE FROM recipe_tags WHERE recipe_id = ? AND tag_id = ?", recipeID, tagID)
+func (m *RecipeTagModel) deleteRecord(tx *sql.Tx, recipeID, tagID int) error {
+	_, err := tx.Exec("DELETE FROM recipe_tags WHERE recipe_id = ? AND tag_id = ?", recipeID, tagID)
 	return err
 }
 
-func (m *RecipeTagModel) deleteRecordsByRecipe(recipeID int) error {
-	_, err := m.DB.Exec("DELETE FROM recipe_tags WHERE recipe_id = ?", recipeID)
+func (m *RecipeTagModel) deleteRecordsByRecipe(tx *sql.Tx, recipeID int) error {
+	_, err := tx.Exec("DELETE FROM recipe_tags WHERE recipe_id = ?", recipeID)
 	return err
 }

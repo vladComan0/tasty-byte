@@ -7,13 +7,14 @@ RUN /sbin/apk update && \
 RUN adduser -D -g '' api
 WORKDIR /home/api
 
-COPY go.mod     ./
-COPY go.sum     ./
-COPY cmd        ./cmd/
-COPY internal   ./internal/
+COPY go.mod      ./
+COPY go.sum      ./
+COPY cmd         ./cmd/
+COPY internal    ./internal/
 # COPY tls        ./tls/
 # COPY ui         ./ui/
-COPY *.go       ./
+COPY *.go        ./
+COPY config.yaml ./
 # RUN chmod 644  ./tls/key.pem
 
 ARG VERSION

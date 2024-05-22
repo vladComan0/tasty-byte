@@ -22,7 +22,7 @@ func (m *TagModel) GetByRecipeID(recipeID int) ([]*Tag, error) {
 		FROM tags t INNER JOIN recipe_tags rt ON rt.tag_id = t.id
 		WHERE rt.recipe_id = ?
 		`
-	
+
 	rows, err := m.DB.Query(stmt, recipeID)
 	if err != nil {
 		switch {
@@ -56,11 +56,11 @@ func (m *TagModel) GetByRecipeID(recipeID int) ([]*Tag, error) {
 	return tags, nil
 }
 
-func (m *TagModel) InsertIfNotExists(name string) (int, error) {
+func (m *TagModel) InsertIfNotExists(tx *sql.Tx, name string) (int, error) {
 	var id int
-	if err := m.DB.QueryRow("SELECT id FROM tags WHERE name = ?", name).Scan(&id); err != nil {
+	if err := tx.QueryRow("SELECT id FROM tags WHERE name = ?", name).Scan(&id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			result, err := m.DB.Exec("INSERT INTO tags(name) VALUES (?)", name)
+			result, err := tx.Exec("INSERT INTO tags(name) VALUES (?)", name)
 			if err != nil {
 				return 0, err
 			}

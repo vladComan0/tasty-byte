@@ -44,6 +44,14 @@ func main() {
 		_ = db.Close()
 	}()
 
+	ingredientModel := &models.IngredientModel{
+		DB: db,
+	}
+
+	recipeIngredientModel := &models.RecipeIngredientModel{
+		DB: db,
+	}
+
 	tagModel := &models.TagModel{
 		DB: db,
 	}
@@ -51,15 +59,18 @@ func main() {
 	recipeTagModel := &models.RecipeTagModel{
 		DB: db,
 	}
+
 	// dependency injection
 	app := &application{
 		config:   config,
 		infoLog:  infoLog,
 		errorLog: errorLog,
 		recipes: &models.RecipeModel{
-			DB:             db,
-			TagModel:       tagModel,
-			RecipeTagModel: recipeTagModel,
+			DB:                    db,
+			IngredientModel:       ingredientModel,
+			RecipeIngredientModel: recipeIngredientModel,
+			TagModel:              tagModel,
+			RecipeTagModel:        recipeTagModel,
 		},
 	}
 

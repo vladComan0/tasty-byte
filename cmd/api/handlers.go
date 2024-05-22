@@ -26,15 +26,15 @@ func (app *application) ping(w http.ResponseWriter, _ *http.Request) {
 
 func (app *application) createRecipe(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		Name            string        `json:"name"`
-		Description     string        `json:"description"`
-		Instructions    string        `json:"instructions"`
-		PreparationTime string        `json:"preparation_time"`
-		CookingTime     string        `json:"cooking_time"`
-		Portions        int           `json:"portions"`
-		Tags            []*models.Tag `json:"tags"`
+		Name            string                   `json:"name"`
+		Description     string                   `json:"description"`
+		Instructions    string                   `json:"instructions"`
+		PreparationTime string                   `json:"preparation_time"`
+		CookingTime     string                   `json:"cooking_time"`
+		Portions        int                      `json:"portions"`
+		Ingredients     []*models.FullIngredient `json:"ingredients"`
+		Tags            []*models.Tag            `json:"tags"`
 	}
-
 	if err := app.readJSON(w, r, &input); err != nil {
 		app.clientError(w, http.StatusBadRequest)
 		return
@@ -47,6 +47,7 @@ func (app *application) createRecipe(w http.ResponseWriter, r *http.Request) {
 		PreparationTime: input.PreparationTime,
 		CookingTime:     input.CookingTime,
 		Portions:        input.Portions,
+		Ingredients:     input.Ingredients,
 		Tags:            input.Tags,
 	}
 
@@ -57,6 +58,7 @@ func (app *application) createRecipe(w http.ResponseWriter, r *http.Request) {
 		recipe.PreparationTime,
 		recipe.CookingTime,
 		recipe.Portions,
+		recipe.Ingredients,
 		recipe.Tags,
 	)
 	if err != nil {

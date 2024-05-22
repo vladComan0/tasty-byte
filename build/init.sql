@@ -30,6 +30,24 @@ CREATE TABLE `recipe_tags` (
   FOREIGN KEY (`tag_id`) REFERENCES `tags`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `ingredients` (
+                        `id` int NOT NULL AUTO_INCREMENT,
+                        `name` varchar(255) NOT NULL,
+                        PRIMARY KEY (`id`),
+                        UNIQUE KEY `ingredient_name` (`name`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `recipe_ingredients` (
+                               `recipe_id` int NOT NULL,
+                               `ingredient_id` int NOT NULL,
+                               `quantity` decimal(5,2) NOT NULL,
+                               `unit`     varchar(50),
+                               PRIMARY KEY (`recipe_id`, `ingredient_id`),
+                               FOREIGN KEY (`recipe_id`) REFERENCES `recipes`(`id`) ON DELETE CASCADE,
+                               FOREIGN KEY (`ingredient_id`) REFERENCES `ingredients`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 -- CREATE TABLE `sessions` (
 --   `token` char(43) COLLATE utf8mb4_unicode_ci NOT NULL,
 --   `data` blob NOT NULL,
