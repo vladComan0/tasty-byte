@@ -10,6 +10,7 @@ import (
 )
 
 type RecipeModelInterface interface {
+	Ping() error
 	Insert(name, description, instructions, preparationTime, cookingTime string, portions int, ingredients []*FullIngredient, tags []*Tag) (int, error)
 	GetAll() ([]*Recipe, error)
 	GetWithTx(tx transactions.Transaction, id int) (*Recipe, error)
@@ -39,6 +40,10 @@ type RecipeModel struct {
 	RecipeTagModel        RecipeTagModelInterface
 }
 
+func (m *RecipeModel) Ping() error {
+	return m.DB.Ping()
+}
+
 func (m *RecipeModel) Insert(name, description, instructions, preparationTime, cookingTime string, portions int, ingredients []*FullIngredient, tags []*Tag) (int, error) {
 	var recipeID int
 	err := transactions.WithTransaction(m.DB, func(tx transactions.Transaction) error {
@@ -59,6 +64,7 @@ func (m *RecipeModel) Insert(name, description, instructions, preparationTime, c
 		}
 		recipeID = int(recipeID64)
 
+		// Must be updated to use batch inserts or reduce the number of SQL inserts through another method
 		for _, ingredient := range ingredients {
 			ingredientID, err := m.IngredientModel.InsertIfNotExists(tx, ingredient.Name)
 			if err != nil {
@@ -68,7 +74,8 @@ func (m *RecipeModel) Insert(name, description, instructions, preparationTime, c
 				return err
 			}
 		}
-
+		
+		// Must be updated to use batch inserts or reduce the number of SQL inserts through another method
 		for _, tag := range tags {
 			tagID, err := m.TagModel.InsertIfNotExists(tx, tag.Name)
 			if err != nil {

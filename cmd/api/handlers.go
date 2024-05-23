@@ -11,7 +11,7 @@ import (
 )
 
 func (app *application) ping(w http.ResponseWriter, _ *http.Request) {
-	if err := app.recipes.DB.Ping(); err != nil {
+	if err := app.recipes.Ping(); err != nil {
 		app.errorLog.Printf("Unable to establish connection with database: %v", err)
 		app.serverError(w, err)
 		return
