@@ -6,6 +6,11 @@ import (
 	"github.com/vladComan0/tasty-byte/pkg/transactions"
 )
 
+type TagModelInterface interface {
+	GetByRecipeID(tx transactions.Transaction, recipeID int) ([]*Tag, error)
+	InsertIfNotExists(tx transactions.Transaction, name string) (int, error)
+}
+
 type Tag struct {
 	ID   int    `json:"id"`
 	Name string `json:"name,omitempty"`

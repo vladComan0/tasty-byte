@@ -9,6 +9,15 @@ import (
 	"time"
 )
 
+type RecipeModelInterface interface {
+	Insert(name, description, instructions, preparationTime, cookingTime string, portions int, ingredients []*FullIngredient, tags []*Tag) (int, error)
+	GetAll() ([]*Recipe, error)
+	GetWithTx(tx transactions.Transaction, id int) (*Recipe, error)
+	Get(id int) (*Recipe, error)
+	Update(recipe *Recipe) error
+	Delete(id int) error
+}
+
 type Recipe struct {
 	ID              int               `json:"id"`
 	Name            string            `json:"name"`
@@ -24,10 +33,10 @@ type Recipe struct {
 
 type RecipeModel struct {
 	DB                    *sql.DB
-	IngredientModel       *IngredientModel
-	RecipeIngredientModel *RecipeIngredientModel
-	TagModel              *TagModel
-	RecipeTagModel        *RecipeTagModel
+	IngredientModel       IngredientModelInterface
+	RecipeIngredientModel RecipeIngredientModelInterface
+	TagModel              TagModelInterface
+	RecipeTagModel        RecipeTagModelInterface
 }
 
 func (m *RecipeModel) Insert(name, description, instructions, preparationTime, cookingTime string, portions int, ingredients []*FullIngredient, tags []*Tag) (int, error) {
@@ -357,6 +366,10 @@ func (m *RecipeModel) Delete(id int) error {
 
 		if rowsAffected == 0 {
 			return ErrNoRecord
+		}
+
+		if err := m.RecipeIngredientModel.deleteRecordsByRecipe(tx, id); err != nil {
+			return err
 		}
 
 		if err := m.RecipeTagModel.deleteRecordsByRecipe(tx, id); err != nil {

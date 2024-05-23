@@ -9,6 +9,7 @@ require github.com/go-sql-driver/mysql v1.7.1
 require github.com/justinas/alice v1.2.0
 
 require (
+	github.com/golang/mock v1.6.0
 	github.com/rs/cors v1.10.1
 	github.com/spf13/viper v1.18.2
 )

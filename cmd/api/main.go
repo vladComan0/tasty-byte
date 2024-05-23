@@ -25,7 +25,7 @@ type application struct {
 	config   config
 	infoLog  *log.Logger
 	errorLog *log.Logger
-	recipes  *models.RecipeModel
+	recipes  models.RecipeModelInterface
 }
 
 func main() {

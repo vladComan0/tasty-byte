@@ -6,6 +6,14 @@ import (
 	"github.com/vladComan0/tasty-byte/pkg/transactions"
 )
 
+type RecipeIngredientModelInterface interface {
+	Associate(tx transactions.Transaction, recipeID, ingredientID int, quantity float64, unit string) error
+	DissociateNotInList(tx transactions.Transaction, recipeID int, recipeIngredients []*FullIngredient) error
+	getIngredientIDsForRecipe(tx transactions.Transaction, recipeID int) ([]int, error)
+	deleteRecord(tx transactions.Transaction, recipeID, ingredientID int) error
+	deleteRecordsByRecipe(tx transactions.Transaction, recipeID int) error
+}
+
 type RecipeIngredient struct {
 	RecipeID     int     `json:"recipe_id"`
 	IngredientID int     `json:"ingredient_id"`
@@ -93,5 +101,10 @@ func (m *RecipeIngredientModel) getIngredientIDsForRecipe(tx transactions.Transa
 
 func (m *RecipeIngredientModel) deleteRecord(tx transactions.Transaction, recipeID, ingredientID int) error {
 	_, err := tx.Exec("DELETE FROM recipe_ingredients WHERE recipe_id = ? AND ingredient_id = ?", recipeID, ingredientID)
+	return err
+}
+
+func (m *RecipeIngredientModel) deleteRecordsByRecipe(tx transactions.Transaction, recipeID int) error {
+	_, err := tx.Exec("DELETE FROM recipe_ingredients WHERE recipe_id = ?", recipeID)
 	return err
 }

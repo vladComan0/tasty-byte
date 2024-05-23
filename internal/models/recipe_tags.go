@@ -6,6 +6,14 @@ import (
 	"github.com/vladComan0/tasty-byte/pkg/transactions"
 )
 
+type RecipeTagModelInterface interface {
+	Associate(tx transactions.Transaction, recipeID, tagID int) error
+	DissociateNotInList(tx transactions.Transaction, recipeID int, recipeTags []*Tag) error
+	getTagIDsForRecipe(tx transactions.Transaction, recipeID int) ([]int, error)
+	deleteRecord(tx transactions.Transaction, recipeID, tagID int) error
+	deleteRecordsByRecipe(tx transactions.Transaction, recipeID int) error
+}
+
 type RecipeTag struct {
 	RecipeID int `json:"recipe_id"`
 	TagID    int `json:"tag_id"`

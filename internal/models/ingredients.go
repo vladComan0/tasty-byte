@@ -6,6 +6,11 @@ import (
 	"github.com/vladComan0/tasty-byte/pkg/transactions"
 )
 
+type IngredientModelInterface interface {
+	GetByRecipeID(tx transactions.Transaction, recipeID int) ([]*FullIngredient, error)
+	InsertIfNotExists(tx transactions.Transaction, name string) (int, error)
+}
+
 // FullIngredient abstracts away the two models for storing ingredients and their quantities/units
 type FullIngredient struct {
 	*Ingredient
