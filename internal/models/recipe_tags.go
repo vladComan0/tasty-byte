@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"errors"
+	"github.com/vladComan0/tasty-byte/pkg/transactions"
 )
 
 type RecipeTag struct {
@@ -14,7 +15,7 @@ type RecipeTagModel struct {
 	DB *sql.DB
 }
 
-func (m *RecipeTagModel) Associate(tx *sql.Tx, recipeID, tagID int) error {
+func (m *RecipeTagModel) Associate(tx transactions.Transaction, recipeID, tagID int) error {
 	var exists bool
 	err := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM recipe_tags WHERE recipe_id = ? AND tag_id = ?)", recipeID, tagID).Scan(&exists)
 	if err != nil {
@@ -33,7 +34,7 @@ func (m *RecipeTagModel) Associate(tx *sql.Tx, recipeID, tagID int) error {
 	return nil
 }
 
-func (m *RecipeTagModel) DissociateNotInList(tx *sql.Tx, recipeID int, recipeTags []*Tag) error {
+func (m *RecipeTagModel) DissociateNotInList(tx transactions.Transaction, recipeID int, recipeTags []*Tag) error {
 	tagIDs, err := m.getTagIDsForRecipe(tx, recipeID)
 	if err != nil {
 		return err
@@ -55,7 +56,7 @@ func (m *RecipeTagModel) DissociateNotInList(tx *sql.Tx, recipeID int, recipeTag
 	return nil
 }
 
-func (m *RecipeTagModel) getTagIDsForRecipe(tx *sql.Tx, recipeID int) ([]int, error) {
+func (m *RecipeTagModel) getTagIDsForRecipe(tx transactions.Transaction, recipeID int) ([]int, error) {
 	var tagIDs []int
 
 	rows, err := tx.Query("SELECT tag_id FROM recipe_tags WHERE recipe_id = ?", recipeID)
@@ -85,12 +86,12 @@ func (m *RecipeTagModel) getTagIDsForRecipe(tx *sql.Tx, recipeID int) ([]int, er
 	return tagIDs, nil
 }
 
-func (m *RecipeTagModel) deleteRecord(tx *sql.Tx, recipeID, tagID int) error {
+func (m *RecipeTagModel) deleteRecord(tx transactions.Transaction, recipeID, tagID int) error {
 	_, err := tx.Exec("DELETE FROM recipe_tags WHERE recipe_id = ? AND tag_id = ?", recipeID, tagID)
 	return err
 }
 
-func (m *RecipeTagModel) deleteRecordsByRecipe(tx *sql.Tx, recipeID int) error {
+func (m *RecipeTagModel) deleteRecordsByRecipe(tx transactions.Transaction, recipeID int) error {
 	_, err := tx.Exec("DELETE FROM recipe_tags WHERE recipe_id = ?", recipeID)
 	return err
 }

@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"errors"
+	"github.com/vladComan0/tasty-byte/pkg/transactions"
 	"log"
 	"sort"
 	"time"
@@ -30,63 +31,54 @@ type RecipeModel struct {
 }
 
 func (m *RecipeModel) Insert(name, description, instructions, preparationTime, cookingTime string, portions int, ingredients []*FullIngredient, tags []*Tag) (int, error) {
-	tx, err := m.DB.Begin()
-	if err != nil {
-		return 0, err
-	}
-
-	stmt := `
-    INSERT INTO recipes 
-        (name, description, instructions, preparation_time, cooking_time, portions, created)
-    VALUES 
-        (?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())
-	`
-	result, err := tx.Exec(stmt, name, description, instructions, preparationTime, cookingTime, portions)
-	if err != nil {
-		_ = tx.Rollback()
-		return 0, err
-	}
-
-	recipeID64, err := result.LastInsertId()
-	if err != nil {
-		_ = tx.Rollback()
-		return 0, err
-	}
-	recipeID := int(recipeID64)
-
-	for _, ingredient := range ingredients {
-		ingredientID, err := m.IngredientModel.InsertIfNotExists(tx, ingredient.Name)
+	var recipeID int
+	err := transactions.WithTransaction(m.DB, func(tx transactions.Transaction) error {
+		stmt := `
+		INSERT INTO recipes 
+			(name, description, instructions, preparation_time, cooking_time, portions, created)
+		VALUES 
+			(?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())
+		`
+		result, err := tx.Exec(stmt, name, description, instructions, preparationTime, cookingTime, portions)
 		if err != nil {
-			_ = tx.Rollback()
-			return 0, err
+			return err
 		}
-		if err := m.RecipeIngredientModel.Associate(tx, recipeID, ingredientID, ingredient.Quantity, ingredient.Unit); err != nil {
-			_ = tx.Rollback()
-			return 0, err
-		}
-	}
 
-	for _, tag := range tags {
-		tagID, err := m.TagModel.InsertIfNotExists(tx, tag.Name)
+		recipeID64, err := result.LastInsertId()
 		if err != nil {
-			_ = tx.Rollback()
-			return 0, err
+			return err
 		}
-		if err := m.RecipeTagModel.Associate(tx, recipeID, tagID); err != nil {
-			_ = tx.Rollback()
-			return 0, err
+		recipeID = int(recipeID64)
+
+		for _, ingredient := range ingredients {
+			ingredientID, err := m.IngredientModel.InsertIfNotExists(tx, ingredient.Name)
+			if err != nil {
+				return err
+			}
+			if err := m.RecipeIngredientModel.Associate(tx, recipeID, ingredientID, ingredient.Quantity, ingredient.Unit); err != nil {
+				return err
+			}
 		}
-	}
 
-	if err := tx.Commit(); err != nil {
-		return 0, err
-	}
+		for _, tag := range tags {
+			tagID, err := m.TagModel.InsertIfNotExists(tx, tag.Name)
+			if err != nil {
+				return err
+			}
+			if err := m.RecipeTagModel.Associate(tx, recipeID, tagID); err != nil {
+				return err
+			}
+		}
 
-	return recipeID, nil
+		return nil
+	})
+
+	return recipeID, err
 }
 
 func (m *RecipeModel) GetAll() ([]*Recipe, error) {
 	var results []*Recipe
+	recipes := make(map[int]*Recipe)
 
 	stmt := `
 	SELECT 
@@ -98,14 +90,22 @@ func (m *RecipeModel) GetAll() ([]*Recipe, error) {
 		recipes.cooking_time,
 		recipes.portions,
 		recipes.created,
+		ingredients.id,
+		ingredients.name,
+		recipe_ingredients.quantity,
+		recipe_ingredients.unit,
 		tags.id,
 		tags.name
 	FROM
 		recipes
-	LEFT JOIN 
-		recipe_tags ON recipes.id=recipe_tags.recipe_id
 	LEFT JOIN
-		tags ON recipe_tags.tag_id=tags.id`
+		recipe_ingredients ON recipes.id = recipe_ingredients.recipe_id
+	LEFT JOIN
+		ingredients ON recipe_ingredients.ingredient_id = ingredients.id
+	LEFT JOIN 
+		recipe_tags ON recipes.id = recipe_tags.recipe_id
+	LEFT JOIN
+		tags ON recipe_tags.tag_id = tags.id`
 
 	rows, err := m.DB.Query(stmt)
 	if err != nil {
@@ -120,13 +120,15 @@ func (m *RecipeModel) GetAll() ([]*Recipe, error) {
 		_ = rows.Close()
 	}(rows)
 
-	recipes := make(map[int]*Recipe)
 	for rows.Next() {
 		var (
-			tag     = &Tag{}
-			tagID   sql.NullInt64
-			tagName sql.NullString
-			recipe  = &Recipe{}
+			ingredientID       sql.NullInt64
+			ingredientName     sql.NullString
+			ingredientQuantity sql.NullFloat64
+			ingredientUnit     sql.NullString
+			tagID              sql.NullInt64
+			tagName            sql.NullString
+			recipe             = &Recipe{}
 		)
 
 		err := rows.Scan(
@@ -138,6 +140,10 @@ func (m *RecipeModel) GetAll() ([]*Recipe, error) {
 			&recipe.CookingTime,
 			&recipe.Portions,
 			&recipe.CreatedAt,
+			&ingredientID,
+			&ingredientName,
+			&ingredientQuantity,
+			&ingredientUnit,
 			&tagID,
 			&tagName,
 		)
@@ -145,14 +151,29 @@ func (m *RecipeModel) GetAll() ([]*Recipe, error) {
 			return nil, err
 		}
 
-		if _, ok := recipes[recipe.ID]; !ok {
+		if _, exists := recipes[recipe.ID]; !exists {
+			recipe.Ingredients = []*FullIngredient{}
 			recipe.Tags = []*Tag{}
 			recipes[recipe.ID] = recipe
 		}
 
+		if ingredientID.Valid && ingredientName.Valid && ingredientQuantity.Valid && ingredientUnit.Valid {
+			ingredient := &FullIngredient{
+				Ingredient: &Ingredient{
+					ID:   int(ingredientID.Int64),
+					Name: ingredientName.String,
+				},
+				Quantity: ingredientQuantity.Float64,
+				Unit:     ingredientUnit.String,
+			}
+			recipes[recipe.ID].Ingredients = append(recipes[recipe.ID].Ingredients, ingredient)
+		}
+
 		if tagID.Valid && tagName.Valid {
-			tag.ID = int(tagID.Int64)
-			tag.Name = tagName.String
+			tag := &Tag{
+				ID:   int(tagID.Int64),
+				Name: tagName.String,
+			}
 			recipes[recipe.ID].Tags = append(recipes[recipe.ID].Tags, tag)
 		}
 
@@ -173,7 +194,7 @@ func (m *RecipeModel) GetAll() ([]*Recipe, error) {
 	return results, nil
 }
 
-func (m *RecipeModel) Get(id int) (*Recipe, error) {
+func (m *RecipeModel) GetWithTx(tx transactions.Transaction, id int) (*Recipe, error) {
 	recipe := &Recipe{}
 
 	stmt := `
@@ -192,7 +213,7 @@ func (m *RecipeModel) Get(id int) (*Recipe, error) {
         id = ?
 `
 
-	err := m.DB.QueryRow(stmt, id).Scan(
+	err := tx.QueryRow(stmt, id).Scan(
 		&recipe.ID,
 		&recipe.Name,
 		&recipe.Description,
@@ -211,7 +232,13 @@ func (m *RecipeModel) Get(id int) (*Recipe, error) {
 		}
 	}
 
-	tags, err := m.TagModel.GetByRecipeID(recipe.ID)
+	ingredients, err := m.IngredientModel.GetByRecipeID(tx, recipe.ID)
+	if err != nil {
+		return nil, err
+	}
+	recipe.Ingredients = ingredients
+
+	tags, err := m.TagModel.GetByRecipeID(tx, recipe.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -221,29 +248,32 @@ func (m *RecipeModel) Get(id int) (*Recipe, error) {
 	return recipe, nil
 }
 
-func (m *RecipeModel) Update(recipe *Recipe) error {
+func (m *RecipeModel) Get(id int) (*Recipe, error) {
 	tx, err := m.DB.Begin()
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
+	defer func() {
+		if err := tx.Rollback(); err != nil {
 			log.Printf("could not rollback %v", err)
 		}
-	}(tx)
+	}()
 
-	existingRecipe, err := m.Get(recipe.ID)
-	if err != nil {
-		return err
-	}
+	return m.GetWithTx(tx, id)
+}
 
-	if existingRecipe == nil {
-		return ErrNoRecord
-	}
+func (m *RecipeModel) Update(recipe *Recipe) error {
+	return transactions.WithTransaction(m.DB, func(tx transactions.Transaction) error {
+		existingRecipe, err := m.GetWithTx(tx, recipe.ID)
+		if err != nil {
+			return err
+		}
 
-	stmt := `
+		if existingRecipe == nil {
+			return ErrNoRecord
+		}
+
+		stmt := `
 	UPDATE recipes
 	SET 
 		name = ?, 
@@ -255,76 +285,84 @@ func (m *RecipeModel) Update(recipe *Recipe) error {
 	WHERE 
 		id = ?
 	`
-	_, err = tx.Exec(
-		stmt,
-		recipe.Name,
-		recipe.Description,
-		recipe.Instructions,
-		recipe.PreparationTime,
-		recipe.CookingTime,
-		recipe.Portions,
-		recipe.ID,
-	)
-	if err != nil {
-		return err
-	}
-
-	for _, tag := range recipe.Tags {
-		tagID, err := m.TagModel.InsertIfNotExists(tx, tag.Name)
+		_, err = tx.Exec(
+			stmt,
+			recipe.Name,
+			recipe.Description,
+			recipe.Instructions,
+			recipe.PreparationTime,
+			recipe.CookingTime,
+			recipe.Portions,
+			recipe.ID,
+		)
 		if err != nil {
 			return err
 		}
-		tag.ID = tagID
 
-		if err := m.RecipeTagModel.Associate(tx, recipe.ID, tag.ID); err != nil {
+		// Must be updated to use batch inserts or reduce the number of SQL inserts through another method
+		for _, ingredient := range recipe.Ingredients {
+			ingredientID, err := m.IngredientModel.InsertIfNotExists(tx, ingredient.Name)
+			if err != nil {
+				return err
+			}
+			ingredient.ID = ingredientID
+
+			if err := m.RecipeIngredientModel.Associate(tx, recipe.ID, ingredient.ID, ingredient.Quantity, ingredient.Unit); err != nil {
+				return err
+			}
+		}
+
+		// Must be updated to use batch inserts or reduce the number of SQL inserts through another method
+		for _, tag := range recipe.Tags {
+			tagID, err := m.TagModel.InsertIfNotExists(tx, tag.Name)
+			if err != nil {
+				return err
+			}
+			tag.ID = tagID
+
+			if err := m.RecipeTagModel.Associate(tx, recipe.ID, tag.ID); err != nil {
+				return err
+			}
+		}
+
+		// Delete any associations in the recipe_ingredients table that are not in the updated Recipe struct
+		if err := m.RecipeIngredientModel.DissociateNotInList(tx, recipe.ID, recipe.Ingredients); err != nil {
 			return err
 		}
-	}
 
-	// Delete any associations in the recipe_tags table that are not in the updated Recipe struct
-	if err := m.RecipeTagModel.DissociateNotInList(tx, recipe.ID, recipe.Tags); err != nil {
-		return err
-	}
+		// Delete any associations in the recipe_tags table that are not in the updated Recipe struct
+		if err := m.RecipeTagModel.DissociateNotInList(tx, recipe.ID, recipe.Tags); err != nil {
+			return err
+		}
 
-	if err := tx.Commit(); err != nil {
-		return err
-	}
-	return nil
+		return nil
+	})
 }
 
-func (m *RecipeModel) Delete(id int) (err error) {
-	tx, err := m.DB.Begin()
-	if err != nil {
-		return err
-	}
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
+func (m *RecipeModel) Delete(id int) error {
+	return transactions.WithTransaction(m.DB, func(tx transactions.Transaction) error {
+		stmt := `
+		DELETE FROM recipes
+		WHERE id = ?
+		`
+		results, err := tx.Exec(stmt, id)
 		if err != nil {
-			log.Printf("could not rollback %v", err)
+			return err
 		}
-	}(tx)
 
-	stmt := `
-	DELETE FROM recipes
-	WHERE id = ?
-	`
-	results, err := tx.Exec(stmt, id)
-	if err != nil {
-		return err
-	}
+		rowsAffected, err := results.RowsAffected()
+		if err != nil {
+			return err
+		}
 
-	rowsAffected, err := results.RowsAffected()
-	if err != nil {
-		return err
-	}
+		if rowsAffected == 0 {
+			return ErrNoRecord
+		}
 
-	if rowsAffected == 0 {
-		return ErrNoRecord
-	}
+		if err := m.RecipeTagModel.deleteRecordsByRecipe(tx, id); err != nil {
+			return err
+		}
 
-	if err := m.RecipeTagModel.deleteRecordsByRecipe(tx, id); err != nil {
-		return err
-	}
-
-	return nil
+		return nil
+	})
 }

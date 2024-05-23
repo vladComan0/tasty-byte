@@ -3,6 +3,7 @@ package models
 import (
 	"database/sql"
 	"errors"
+	"github.com/vladComan0/tasty-byte/pkg/transactions"
 )
 
 type Tag struct {
@@ -14,7 +15,7 @@ type TagModel struct {
 	DB *sql.DB
 }
 
-func (m *TagModel) GetByRecipeID(recipeID int) ([]*Tag, error) {
+func (m *TagModel) GetByRecipeID(tx transactions.Transaction, recipeID int) ([]*Tag, error) {
 	var tags []*Tag
 
 	stmt := `
@@ -23,7 +24,7 @@ func (m *TagModel) GetByRecipeID(recipeID int) ([]*Tag, error) {
 		WHERE rt.recipe_id = ?
 		`
 
-	rows, err := m.DB.Query(stmt, recipeID)
+	rows, err := tx.Query(stmt, recipeID)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
@@ -56,7 +57,7 @@ func (m *TagModel) GetByRecipeID(recipeID int) ([]*Tag, error) {
 	return tags, nil
 }
 
-func (m *TagModel) InsertIfNotExists(tx *sql.Tx, name string) (int, error) {
+func (m *TagModel) InsertIfNotExists(tx transactions.Transaction, name string) (int, error) {
 	var id int
 	if err := tx.QueryRow("SELECT id FROM tags WHERE name = ?", name).Scan(&id); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

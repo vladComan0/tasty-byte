@@ -151,13 +151,14 @@ func (app *application) updateRecipe(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input struct {
-		Name            *string       `json:"name"`
-		Description     *string       `json:"description"`
-		Instructions    *string       `json:"instructions"`
-		PreparationTime *string       `json:"preparation_time"`
-		CookingTime     *string       `json:"cooking_time"`
-		Portions        *int          `json:"portions"`
-		Tags            []*models.Tag `json:"tags"`
+		Name            *string                  `json:"name"`
+		Description     *string                  `json:"description"`
+		Instructions    *string                  `json:"instructions"`
+		PreparationTime *string                  `json:"preparation_time"`
+		CookingTime     *string                  `json:"cooking_time"`
+		Portions        *int                     `json:"portions"`
+		Ingredients     []*models.FullIngredient `json:"ingredients"`
+		Tags            []*models.Tag            `json:"tags"`
 	}
 
 	if err := app.readJSON(w, r, &input); err != nil {
@@ -187,6 +188,16 @@ func (app *application) updateRecipe(w http.ResponseWriter, r *http.Request) {
 
 	if input.Portions != nil {
 		recipe.Portions = *input.Portions
+	}
+
+	if input.Ingredients != nil {
+		for _, ingredient := range input.Ingredients {
+			if ingredient.Name == "" {
+				app.clientError(w, http.StatusBadRequest)
+				return
+			}
+		}
+		recipe.Ingredients = input.Ingredients
 	}
 
 	if input.Tags != nil {
