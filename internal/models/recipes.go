@@ -74,7 +74,7 @@ func (m *RecipeModel) Insert(name, description, instructions, preparationTime, c
 				return err
 			}
 		}
-		
+
 		// Must be updated to use batch inserts or reduce the number of SQL inserts through another method
 		for _, tag := range tags {
 			tagID, err := m.TagModel.InsertIfNotExists(tx, tag.Name)
@@ -290,17 +290,17 @@ func (m *RecipeModel) Update(recipe *Recipe) error {
 		}
 
 		stmt := `
-	UPDATE recipes
-	SET 
-		name = ?, 
-		description = ?, 
-		instructions = ?, 
-		preparation_time = ?, 
-		cooking_time = ?, 
-		portions = ?
-	WHERE 
-		id = ?
-	`
+		UPDATE recipes
+		SET 
+			name = ?, 
+			description = ?, 
+			instructions = ?, 
+			preparation_time = ?, 
+			cooking_time = ?, 
+			portions = ?
+		WHERE 
+			id = ?
+		`
 		_, err = tx.Exec(
 			stmt,
 			recipe.Name,

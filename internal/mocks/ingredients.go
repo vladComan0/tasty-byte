@@ -2,7 +2,7 @@
 // Source: internal/models/ingredients.go
 
 // Package mock_models is a generated GoMock package.
-package mock_models
+package mocks
 
 import (
 	reflect "reflect"

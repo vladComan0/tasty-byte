@@ -2,7 +2,7 @@
 // Source: internal/models/recipes.go
 
 // Package mock_models is a generated GoMock package.
-package mock_models
+package mocks
 
 import (
 	reflect "reflect"
@@ -16,6 +16,10 @@ import (
 type MockRecipeModelInterface struct {
 	ctrl     *gomock.Controller
 	recorder *MockRecipeModelInterfaceMockRecorder
+	IngredientModel       *MockIngredientModelInterface
+	RecipeIngredientModel *MockRecipeIngredientModelInterface
+	TagModel              *MockTagModelInterface
+	RecipeTagModel        *MockRecipeTagModelInterface
 }
 
 // MockRecipeModelInterfaceMockRecorder is the mock recorder for MockRecipeModelInterface.
@@ -27,6 +31,11 @@ type MockRecipeModelInterfaceMockRecorder struct {
 func NewMockRecipeModelInterface(ctrl *gomock.Controller) *MockRecipeModelInterface {
 	mock := &MockRecipeModelInterface{ctrl: ctrl}
 	mock.recorder = &MockRecipeModelInterfaceMockRecorder{mock}
+	mock.IngredientModel = NewMockIngredientModelInterface(ctrl)
+	mock.RecipeIngredientModel = NewMockRecipeIngredientModelInterface(ctrl)
+	mock.TagModel = NewMockTagModelInterface(ctrl)
+	mock.RecipeTagModel = NewMockRecipeTagModelInterface(ctrl)
+
 	return mock
 }
 
