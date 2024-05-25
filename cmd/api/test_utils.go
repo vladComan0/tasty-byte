@@ -26,7 +26,7 @@ func newTestApplication() *application {
 }
 
 func newTestServer(h http.Handler) *testServer {
-	ts := httptest.NewServer(h)
+	ts := httptest.NewTLSServer(h)
 
 	// Disable redirect-following for the test server client by setting a custom
 	// CheckRedirect function. This function will be called whenever a 3xx response

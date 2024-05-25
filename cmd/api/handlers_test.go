@@ -139,7 +139,7 @@ func TestPing(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockRecipes.EXPECT().Ping().Return(tc.mockReturnErr)
 
-			res, err := http.Get(fmt.Sprintf("%s/ping", ts.URL))
+			res, err := ts.Client().Get(fmt.Sprintf("%s/ping", ts.URL))
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, res.StatusCode)
 
@@ -262,7 +262,7 @@ func TestCreateRecipe(t *testing.T) {
 			body, err := json.Marshal(input)
 			assert.NoError(t, err)
 
-			res, err := http.Post(fmt.Sprintf("%s/v1/recipes", ts.URL), "application/json", bytes.NewBuffer(body))
+			res, err := ts.Client().Post(fmt.Sprintf("%s/v1/recipes", ts.URL), "application/json", bytes.NewBuffer(body))
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, res.StatusCode)
 		})
@@ -329,7 +329,7 @@ func TestGetRecipe(t *testing.T) {
 				mockRecipes.EXPECT().Get(tc.id).Times(0)
 			}
 
-			res, err := http.Get(fmt.Sprintf("%s/v1/recipes/%d", ts.URL, tc.id))
+			res, err := ts.Client().Get(fmt.Sprintf("%s/v1/recipes/%d", ts.URL, tc.id))
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, res.StatusCode)
 		})
@@ -379,7 +379,7 @@ func TestListRecipes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockRecipes.EXPECT().GetAll().Return(tc.mockReturn, tc.mockReturnErr)
 
-			res, err := http.Get(fmt.Sprintf("%s/v1/recipes", ts.URL))
+			res, err := ts.Client().Get(fmt.Sprintf("%s/v1/recipes", ts.URL))
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, res.StatusCode)
 		})
@@ -553,8 +553,7 @@ func TestUpdateRecipe(t *testing.T) {
 			req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("%s/v1/recipes/%d", ts.URL, tc.recipe.ID), bytes.NewBuffer(body))
 			assert.NoError(t, err)
 
-			client := &http.Client{}
-			res, err := client.Do(req)
+			res, err := ts.Client().Do(req)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, res.StatusCode)
 		})
@@ -617,8 +616,7 @@ func TestDeleteRecipe(t *testing.T) {
 			req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/v1/recipes/%d", ts.URL, tc.id), nil)
 			assert.NoError(t, err)
 
-			client := &http.Client{}
-			res, err := client.Do(req)
+			res, err := ts.Client().Do(req)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.expectedStatus, res.StatusCode)
 		})
