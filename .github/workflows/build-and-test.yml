@@ -39,7 +39,7 @@ jobs:
         run: ls -l ${{ github.workspace }}
 
       - name: Setup golangci-lint
-        uses: golangci/golangci-lint-action@v2
+        uses: golangci/golangci-lint-action@v6
         with:
           version: v1.59.0
 
