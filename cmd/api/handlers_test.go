@@ -233,16 +233,7 @@ func TestCreateRecipe(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockRecipes.EXPECT().Insert(
-				tc.recipe.Name,
-				tc.recipe.Description,
-				tc.recipe.Instructions,
-				tc.recipe.PreparationTime,
-				tc.recipe.CookingTime,
-				tc.recipe.Portions,
-				tc.recipe.Ingredients,
-				tc.recipe.Tags,
-			).Return(tc.mockReturnID, tc.mockReturnErr)
+			mockRecipes.EXPECT().Insert(tc.recipe).Return(tc.mockReturnID, tc.mockReturnErr)
 
 			if tc.mockReturnErr == nil {
 				mockRecipes.EXPECT().Get(tc.mockReturnID).Return(tc.recipe, nil)

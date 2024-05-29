@@ -11,7 +11,7 @@ import (
 
 type RecipeModelInterface interface {
 	Ping() error
-	Insert(name, description, instructions, preparationTime, cookingTime string, portions int, ingredients []*FullIngredient, tags []*Tag) (int, error)
+	Insert(recipe *Recipe) (int, error)
 	GetAll() ([]*Recipe, error)
 	GetWithTx(tx transactions.Transaction, id int) (*Recipe, error)
 	Get(id int) (*Recipe, error)
@@ -44,7 +44,7 @@ func (m *RecipeModel) Ping() error {
 	return m.DB.Ping()
 }
 
-func (m *RecipeModel) Insert(name, description, instructions, preparationTime, cookingTime string, portions int, ingredients []*FullIngredient, tags []*Tag) (int, error) {
+func (m *RecipeModel) Insert(recipe *Recipe) (int, error) {
 	var recipeID int
 	err := transactions.WithTransaction(m.DB, func(tx transactions.Transaction) error {
 		stmt := `
@@ -53,7 +53,7 @@ func (m *RecipeModel) Insert(name, description, instructions, preparationTime, c
 		VALUES 
 			(?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())
 		`
-		result, err := tx.Exec(stmt, name, description, instructions, preparationTime, cookingTime, portions)
+		result, err := tx.Exec(stmt, recipe.Name, recipe.Description, recipe.Instructions, recipe.PreparationTime, recipe.CookingTime, recipe.Portions)
 		if err != nil {
 			return err
 		}
@@ -65,7 +65,7 @@ func (m *RecipeModel) Insert(name, description, instructions, preparationTime, c
 		recipeID = int(recipeID64)
 
 		// Must be updated to use batch inserts or reduce the number of SQL inserts through another method
-		for _, ingredient := range ingredients {
+		for _, ingredient := range recipe.Ingredients {
 			ingredientID, err := m.IngredientModel.InsertIfNotExists(tx, ingredient.Name)
 			if err != nil {
 				return err
@@ -76,7 +76,7 @@ func (m *RecipeModel) Insert(name, description, instructions, preparationTime, c
 		}
 
 		// Must be updated to use batch inserts or reduce the number of SQL inserts through another method
-		for _, tag := range tags {
+		for _, tag := range recipe.Tags {
 			tagID, err := m.TagModel.InsertIfNotExists(tx, tag.Name)
 			if err != nil {
 				return err

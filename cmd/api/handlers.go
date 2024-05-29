@@ -51,16 +51,7 @@ func (app *application) createRecipe(w http.ResponseWriter, r *http.Request) {
 		Tags:            input.Tags,
 	}
 
-	id, err := app.recipes.Insert(
-		recipe.Name,
-		recipe.Description,
-		recipe.Instructions,
-		recipe.PreparationTime,
-		recipe.CookingTime,
-		recipe.Portions,
-		recipe.Ingredients,
-		recipe.Tags,
-	)
+	id, err := app.recipes.Insert(recipe)
 	if err != nil {
 		app.serverError(w, err)
 		return

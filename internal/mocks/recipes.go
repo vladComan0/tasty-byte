@@ -104,18 +104,18 @@ func (mr *MockRecipeModelInterfaceMockRecorder) GetWithTx(tx, id interface{}) *g
 }
 
 // Insert mocks base method.
-func (m *MockRecipeModelInterface) Insert(name, description, instructions, preparationTime, cookingTime string, portions int, ingredients []*models.FullIngredient, tags []*models.Tag) (int, error) {
+func (m *MockRecipeModelInterface) Insert(recipe *models.Recipe) (int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Insert", name, description, instructions, preparationTime, cookingTime, portions, ingredients, tags)
+	ret := m.ctrl.Call(m, "Insert", recipe)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Insert indicates an expected call of Insert.
-func (mr *MockRecipeModelInterfaceMockRecorder) Insert(name, description, instructions, preparationTime, cookingTime, portions, ingredients, tags interface{}) *gomock.Call {
+func (mr *MockRecipeModelInterfaceMockRecorder) Insert(recipe interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Insert", reflect.TypeOf((*MockRecipeModelInterface)(nil).Insert), name, description, instructions, preparationTime, cookingTime, portions, ingredients, tags)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Insert", reflect.TypeOf((*MockRecipeModelInterface)(nil).Insert), recipe)
 }
 
 // Ping mocks base method.
